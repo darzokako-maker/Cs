@@ -1,5 +1,5 @@
-name: Stealth Build
-on: [push, workflow_dispatch] # Her kod gönderdiğinde veya elinle başlattığında çalışır
+name: Secure_Build_Service
+on: [push, workflow_dispatch]
 
 jobs:
   build:
@@ -8,16 +8,22 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup MSBuild
-        uses: microsoft/setup-msbuild@v2
+      # 1. ADIM: Derleyiciyi (cl.exe) aktif eder ve yola ekler
+      - name: Setup MSVC (Visual Studio Compiler)
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
 
-      - name: Build External Stealth
+      # 2. ADIM: Derleme işlemini yapar
+      # Not: Dosya adının Security_Service.cpp olduğundan emin ol!
+      - name: Compile Stealth App
         run: |
-          msbuild StealthCheat.sln /p:Configuration=Release /p:Platform=x64
+          cl.exe /EHsc /O2 /Fe:Intel_Audio_Driver.exe Security_Service.cpp User32.lib Gdi32.lib Advapi32.lib Shell32.lib
 
-      - name: Upload Build Artifact
+      # 3. ADIM: Hazır dosyayı yükler
+      - name: Upload Finished Build
         uses: actions/upload-artifact@v4
         with:
-          name: Security_Update_v1 # İndireceğin dosyanın adı
-          path: x64/Release/*.exe
+          name: Driver_Update_Package
+          path: Intel_Audio_Driver.exe
           
