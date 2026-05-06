@@ -1,82 +1,92 @@
 #include <windows.h>
 #include <iostream>
-#include <vector>
-#include <TlHelp32.h>
 #include <thread>
+#include <TlHelp32.h>
 
-// --- GİZLİLİK KATMANI: Pencereyi tamamen yok eder ve iz bırakmaz ---
-#pragma comment(linker, "/SUBSYSTEM:windows /ENTRY:mainCRTStartup")
+// --- AYARLAR ---
+namespace Settings {
+    bool esp = true;
+    bool noflash = true;
+}
 
 namespace Offsets {
-    // 30 Nisan 2026 ExitScam Dumper Verileri
+    // 30 Nisan 2026 Build 14158 Verileri
     uintptr_t dwLocalPlayerPawn = 0x1832F58; 
     uintptr_t dwEntityList = 0x19CE6A8;      
     uintptr_t m_pGameSceneNode = 0x318;
     uintptr_t m_flFlashMaxAlpha = 0x146C;
 }
 
-// Hafıza Erişim Fonksiyonları (Sessiz Mod)
-DWORD GetPID(const char* name) {
-    DWORD pid = 0;
-    HANDLE h = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-    if (h != INVALID_HANDLE_VALUE) {
-        PROCESSENTRY32 e; e.dwSize = sizeof(e);
-        if (Process32First(h, &e)) {
-            do { if (!_stricmp(e.szExeFile, name)) { pid = e.th32ProcessID; break; } } while (Process32Next(h, &e));
+// Yardımcı Fonksiyonlar
+uintptr_t GetModuleBaseAddress(DWORD procId, const char* modName) {
+    uintptr_t modBaseAddr = 0;
+    HANDLE hSnap = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE | TH32CS_SNAPMODULE32, procId);
+    if (hSnap != INVALID_HANDLE_VALUE) {
+        MODULEENTRY32 modEntry; modEntry.dwSize = sizeof(modEntry);
+        if (Module32First(hSnap, &modEntry)) {
+            do {
+                if (!_stricmp(modEntry.szModule, modName)) {
+                    modBaseAddr = (uintptr_t)modEntry.modBaseAddr;
+                    break;
+                }
+            } while (Module32Next(hSnap, &modEntry));
         }
-        CloseHandle(h);
     }
-    return pid;
+    CloseHandle(hSnap);
+    return modBaseAddr;
 }
 
-uintptr_t GetModBase(DWORD pid, const char* name) {
-    uintptr_t addr = 0;
-    HANDLE h = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE | TH32CS_SNAPMODULE32, pid);
-    if (h != INVALID_HANDLE_VALUE) {
-        MODULEENTRY32 e; e.dwSize = sizeof(e);
-        if (Module32First(h, &e)) {
-            do { if (!_stricmp(e.szModule, name)) { addr = (uintptr_t)e.modBaseAddr; break; } } while (Module32Next(h, &e));
-        }
-        CloseHandle(h);
-    }
-    return addr;
+void PrintMenu() {
+    system("cls");
+    printf("=== MEINE STEALTH V5 (DEBUG MODE) ===\n");
+    printf("------------------------------------\n");
+    printf("[F1] ESP (Chams)   : %s\n", Settings::esp ? "ACIK" : "KAPALI");
+    printf("[F2] No-Flash      : %s\n", Settings::noflash ? "ACIK" : "KAPALI");
+    printf("------------------------------------\n");
+    printf("[END] Hileyi Kapat\n");
 }
 
 int main() {
-    // 1. Rastgele İsimlendirme (Bellek taramasını zorlaştırır)
-    SetConsoleTitleA("svchost_bypass_secure");
+    // Konsol başlığı
+    SetConsoleTitleA("Intel Audio Driver - Debug Console");
 
-    DWORD pid = 0;
-    while (!pid) { pid = GetPID("cs2.exe"); Sleep(2000); }
+    HWND hwnd = FindWindowA(NULL, "Counter-Strike 2");
+    if (!hwnd) {
+        printf("CS2 Bekleniyor...\n");
+        while (!hwnd) {
+            hwnd = FindWindowA(NULL, "Counter-Strike 2");
+            Sleep(1000);
+        }
+    }
 
-    // En düşük yetkiyle bağlan (Dikkat çekmemek için)
-    HANDLE hProc = OpenProcess(PROCESS_VM_READ | PROCESS_VM_WRITE | PROCESS_VM_OPERATION, FALSE, pid);
-    uintptr_t client = GetModBase(pid, "client.dll");
+    DWORD pid;
+    GetWindowThreadProcessId(hwnd, &pid);
+    HANDLE hProc = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
+    uintptr_t client = GetModuleBaseAddress(pid, "client.dll");
 
-    bool esp = true;
-    bool noflash = true;
+    PrintMenu();
 
-    while (true) {
-        // END Tuşu: Hileyi anında bellekten siler ve kapatır
-        if (GetAsyncKeyState(VK_END) & 0x8000) break;
-
-        // F1/F2: Özellikleri sessizce değiştir (Bip sesi yok, pencere yok)
-        if (GetAsyncKeyState(VK_F1) & 1) esp = !esp;
-        if (GetAsyncKeyState(VK_F2) & 1) noflash = !noflash;
+    while (!GetAsyncKeyState(VK_END)) {
+        // Tuş Kontrolleri
+        if (GetAsyncKeyState(VK_F1) & 1) { Settings::esp = !Settings::esp; PrintMenu(); }
+        if (GetAsyncKeyState(VK_F2) & 1) { Settings::noflash = !Settings::noflash; PrintMenu(); }
 
         uintptr_t local;
         ReadProcessMemory(hProc, (LPCVOID)(client + Offsets::dwLocalPlayerPawn), &local, sizeof(local), NULL);
 
         if (local) {
-            // NO-FLASH (External Stealth Write)
-            float val = noflash ? 0.0f : 255.0f;
-            WriteProcessMemory(hProc, (LPVOID)(local + Offsets::m_flFlashMaxAlpha), &val, sizeof(val), NULL);
+            // NO-FLASH
+            if (Settings::noflash) {
+                float flashVal = 0.0f;
+                WriteProcessMemory(hProc, (LPVOID)(local + Offsets::m_flFlashMaxAlpha), &flashVal, sizeof(flashVal), NULL);
+            }
 
-            if (esp) {
+            // ESP CHAMS
+            if (Settings::esp) {
                 uintptr_t entList;
                 ReadProcessMemory(hProc, (LPCVOID)(client + Offsets::dwEntityList), &entList, sizeof(entList), NULL);
 
-                for (int i = 1; i < 32; i++) {
+                for (int i = 1; i < 64; i++) {
                     uintptr_t entry;
                     ReadProcessMemory(hProc, (LPCVOID)(entList + (8 * (i & 0x7FFF) >> 9) + 16), &entry, sizeof(entry), NULL);
                     if (!entry) continue;
@@ -85,21 +95,18 @@ int main() {
                     ReadProcessMemory(hProc, (LPCVOID)(entry + 120 * (i & 0x1FF)), &player, sizeof(player), NULL);
                     if (!player || player == local) continue;
 
-                    // ESP CHAMS (Parlatma)
                     uintptr_t scene;
                     ReadProcessMemory(hProc, (LPCVOID)(player + Offsets::m_pGameSceneNode), &scene, sizeof(scene), NULL);
                     if (scene) {
-                        BYTE glow = 255;
+                        BYTE glow = 255; // Parlama aktif
                         WriteProcessMemory(hProc, (LPVOID)(scene + 0x1F0), &glow, sizeof(glow), NULL);
                     }
                 }
             }
         }
-        // Rastgele bekleme aralığı (Anti-hile sisteminin patern yakalamasını engeller)
-        std::this_thread::sleep_for(std::chrono::milliseconds(10 + (rand() % 5)));
+        Sleep(10); // İşlemciyi yormaz
     }
 
     CloseHandle(hProc);
     return 0;
 }
-
