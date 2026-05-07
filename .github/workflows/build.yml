@@ -18,7 +18,7 @@ jobs:
 
     - name: Install Dependencies
       run: |
-        pip install pymem pygame keyboard pywin32 pyinstaller
+        pip install -r requirements.txt
 
     - name: Build EXE
       run: |
@@ -27,6 +27,6 @@ jobs:
     - name: Upload EXE Artifact
       uses: actions/upload-artifact@v3
       with:
-        name: CS2-External-Output
+        name: CS2-Final-EXE
         path: dist/main.exe
         
