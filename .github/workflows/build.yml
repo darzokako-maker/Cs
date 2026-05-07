@@ -1,4 +1,4 @@
-name: Generate EXE
+name: Generate CS2 EXE
 
 on:
   push:
@@ -16,17 +16,17 @@ jobs:
       with:
         python-version: "3.10"
 
-    - name: Install dependencies
+    - name: Install Dependencies
       run: |
         pip install pymem pygame keyboard pywin32 pyinstaller
 
-    - name: Build EXE with PyInstaller
+    - name: Build EXE
       run: |
-        pyinstaller --onefile --noconsole main.py
+        pyinstaller --onefile --noconsole --uac-admin main.py
 
-    - name: Upload Artifact
+    - name: Upload EXE Artifact
       uses: actions/upload-artifact@v3
       with:
-        name: CS2-External-Cheat
+        name: CS2-External-Output
         path: dist/main.exe
         
