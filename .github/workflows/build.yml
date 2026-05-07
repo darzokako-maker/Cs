@@ -1,29 +1,32 @@
-name: Secure_Build_Service
-on: [push, workflow_dispatch]
+name: Generate EXE
+
+on:
+  push:
+    branches: [ "main" ]
 
 jobs:
   build:
     runs-on: windows-latest
+
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+    - uses: actions/checkout@v3
 
-      # 1. ADIM: Derleyiciyi (cl.exe) aktif eder ve yola ekler
-      - name: Setup MSVC (Visual Studio Compiler)
-        uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: x64
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.10"
 
-      # 2. ADIM: Derleme işlemini yapar
-      # Not: Dosya adının Security_Service.cpp olduğundan emin ol!
-      - name: Compile Stealth App
-        run: |
-          cl.exe /EHsc /O2 /Fe:Intel_Audio_Driver.exe Security_Service.cpp User32.lib Gdi32.lib Advapi32.lib Shell32.lib
+    - name: Install dependencies
+      run: |
+        pip install pymem pygame keyboard pywin32 pyinstaller
 
-      # 3. ADIM: Hazır dosyayı yükler
-      - name: Upload Finished Build
-        uses: actions/upload-artifact@v4
-        with:
-          name: Driver_Update_Package
-          path: Intel_Audio_Driver.exe
-          
+    - name: Build EXE with PyInstaller
+      run: |
+        pyinstaller --onefile --noconsole main.py
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: CS2-External-Cheat
+        path: dist/main.exe
+        
