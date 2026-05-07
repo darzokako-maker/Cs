@@ -1,4 +1,4 @@
-name: Generate CS2 EXE
+name: Generate CS2 EXE v4
 
 on:
   push:
@@ -9,24 +9,27 @@ jobs:
     runs-on: windows-latest
 
     steps:
-    - uses: actions/checkout@v3
+    - name: Checkout Repository
+      uses: actions/checkout@v4  # v3 yerine v4 kullanıldı
 
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5 # v4/v3 yerine v5 kullanıldı
       with:
         python-version: "3.10"
 
-    - name: Install Dependencies
+    - name: Install Requirements
       run: |
-        pip install -r requirements.txt
+        python -m pip install --upgrade pip
+        pip install pymem pygame keyboard pywin32 pyinstaller
 
-    - name: Build EXE
+    - name: Build EXE with PyInstaller
+        # --uac-admin: EXE'nin yönetici izni istemesini sağlar
       run: |
         pyinstaller --onefile --noconsole --uac-admin main.py
 
-    - name: Upload EXE Artifact
-      uses: actions/upload-artifact@v3
+    - name: Upload Finished EXE
+      uses: actions/upload-artifact@v4 # v3 yerine v4 kullanıldı
       with:
-        name: CS2-Final-EXE
+        name: CS2-External-Build
         path: dist/main.exe
         
